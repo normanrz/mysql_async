@@ -111,6 +111,7 @@ pub use mysql_common::{chrono, constants as consts, params, time, uuid};
 
 #[macro_use]
 mod macros;
+mod binlog;
 mod conn;
 mod connection_like;
 /// Errors used in this crate

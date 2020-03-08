@@ -28,6 +28,8 @@ use std::{
     time::{Duration, Instant},
 };
 
+use byteorder::{WriteBytesExt, LE};
+
 use crate::{
     conn::{pool::Pool, stmt_cache::StmtCache},
     connection_like::{streamless::Streamless, ConnectionLike, StmtCacheResult},
@@ -491,6 +493,70 @@ impl Conn {
     /// Returns duration since last io.
     fn idling(&self) -> Duration {
         self.inner.last_io.elapsed()
+    }
+
+    pub async fn register_as_slave(self, server_id: u32) -> Result<Self> {
+        let conn = self
+            .drop_query("SET @master_binlog_checksum='NONE'")
+            .await?;
+
+        let mut buf = vec![0u8; 4 + 1 + 1 + 1 + 2 + 4 + 4];
+        {
+            let mut writer = &mut *buf;
+
+            // 4 byte server ID
+            writer.write_u32::<LE>(server_id).expect("should not fail");
+
+            // 1 byte slave hostname length (usually empty)
+            writer.write_u8(0).expect("should not fail");
+
+            // 1 byte slave username length (usually empty)
+            writer.write_u8(0).expect("should not fail");
+
+            // 1 byte slave password length (usually empty)
+            writer.write_u8(0).expect("should not fail");
+
+            // 2 byte slave port (usually empty)
+            writer.write_u16::<LE>(0).expect("should not fail");
+
+            // 4 byte replication rank (ignored)
+            writer.write_u32::<LE>(0).expect("should not fail");
+
+            // 4 byte master ID (usually 0)
+            writer.write_u32::<LE>(0).expect("should not fail");
+        }
+        conn.write_command_data(crate::consts::Command::COM_REGISTER_SLAVE, &*buf)
+            .await?
+            .drop_packet()
+            .await
+    }
+
+    pub async fn request_binlog(
+        self,
+        filename: &str,
+        position: u32,
+        server_id: u32,
+    ) -> Result<Self> {
+        let mut buf = vec![0u8; 4 + 2 + 4];
+        {
+            let mut writer = &mut *buf;
+
+            // 4 byte binlog position
+            writer.write_u32::<LE>(position).expect("should not fail");
+
+            // 2 byte flags
+            writer.write_u16::<LE>(0).expect("should not fail");
+
+            // 4 byte server ID
+            writer.write_u32::<LE>(server_id).expect("should not fail");
+
+            // filename
+            buf.extend_from_slice(filename.as_bytes());
+        }
+        self.write_command_data(consts::Command::COM_BINLOG_DUMP, &*buf)
+            .await?
+            .drop_packet()
+            .await
     }
 
     /// Returns future that resolves to a [`Conn`] with `COM_RESET_CONNECTION` executed on it.

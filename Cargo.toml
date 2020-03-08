@@ -19,6 +19,8 @@ futures-util = "0.3"
 futures-sink = "0.3"
 mio-named-pipes = "0.1.6"
 mysql_common = "0.20.0"
+byteorder = "1"
+mysql_binlog = { git = "https://github.com/normanrz/rust-mysql-binlog.git", branch = "master" }
 native-tls = "0.2"
 percent-encoding = "2.1.0"
 pin-project = "0.4.6"
