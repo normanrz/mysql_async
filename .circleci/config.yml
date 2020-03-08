@@ -14,7 +14,7 @@ jobs:
     docker:
       - image: rust:<< parameters.rust >>
       - image: << parameters.flavor >>:<< parameters.version >>
-        command: mysqld --sql_mode=NO_ENGINE_SUBSTITUTION,STRICT_TRANS_TABLES --max_allowed_packet=32M --ssl
+        command: mysqld --sql_mode=NO_ENGINE_SUBSTITUTION,STRICT_TRANS_TABLES --max_allowed_packet=32M --ssl --log-bin --binlog_format=row
         environment:
           MYSQL_ROOT_PASSWORD: password
     environment:
